@@ -6,17 +6,17 @@ from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 from PIL import Image
 import os
+import gc  # Garbage collection to free memory
 
-app = Flask(__name__) 
-CORS(app)  # Enable CORS so the API can be accessed from anywhere
+app = Flask(__name__)
+CORS(app)
 
-# Update this path if you move the model into the project folder
-MODEL_PATH = "mobilenet_best_model.keras"  # Assumes model is in project folder
+MODEL_PATH = "mobilenet_best_model.keras"
 model = load_model(MODEL_PATH)
 
 def create_mel_spectrogram(audio_segment, sr):
     try:
-        spectrogram = librosa.feature.melspectrogram(y=audio_segment, sr=sr, n_mels=128)
+        spectrogram = librosa.feature.melspectrogram(y=audio_segment, sr=sr, n_mels=64)  # Reduced from 128
         spectrogram_db = librosa.power_to_db(spectrogram, ref=np.max)
         plt.figure(figsize=(2, 2), dpi=100)
         plt.axis('off')
@@ -29,6 +29,9 @@ def create_mel_spectrogram(audio_segment, sr):
         img = img.resize((224, 224))
         img_array = np.array(img) / 255.0
         os.remove(temp_image_path)
+        # Clear memory
+        del spectrogram, spectrogram_db, img
+        gc.collect()
         return img_array
     except Exception as e:
         print(f"Error creating spectrogram: {e}")
@@ -64,8 +67,14 @@ def predict_audio(audio_path):
                     bee_count += 1
 
                 total_segments += 1
+                # Clear memory after prediction
+                del spectrogram, prediction
+                gc.collect()
 
             segment_start += 10
+
+        del y  # Free audio data
+        gc.collect()
 
         if total_segments > 0:
             bee_percentage = (bee_count / total_segments) * 100
